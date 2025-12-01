@@ -7,11 +7,23 @@ import {
   limit,
   orderBy,
   query,
+  setDoc,
   updateDoc,
   where
 } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase';
-import type { Course, Enrolment, Lesson, Module } from '@/types/models';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { firestore, storage } from '@/lib/firebase';
+import type {
+  Assignment,
+  AssignmentSubmission,
+  Certificate,
+  Course,
+  Enrolment,
+  Lesson,
+  Module,
+  Quiz,
+  QuizAttempt
+} from '@/types/models';
 
 export const courseCollection = collection(firestore, 'courses');
 export const enrolmentCollection = collection(firestore, 'enrolments');
@@ -113,4 +125,178 @@ export const createCourse = async (payload: Omit<Course, 'id'>) => {
  */
 export const updateCourse = async (courseId: string, payload: Partial<Course>) => {
   await updateDoc(doc(courseCollection, courseId), payload);
+};
+
+/**
+ * Retrieves quizzes that belong to a course.
+ */
+export const getQuizzesForCourse = async (courseId: string): Promise<Quiz[]> => {
+  const quizzesRef = collection(firestore, `courses/${courseId}/quizzes`);
+  const snapshot = await getDocs(quizzesRef);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Quiz) }));
+};
+
+/**
+ * Finds a single quiz by id for the provided course.
+ */
+export const getQuizById = async (courseId: string, quizId: string): Promise<Quiz | null> => {
+  const quizRef = doc(firestore, `courses/${courseId}/quizzes/${quizId}`);
+  const snapshot = await getDoc(quizRef);
+  return snapshot.exists() ? ({ id: snapshot.id, ...(snapshot.data() as Quiz) } as Quiz) : null;
+};
+
+/**
+ * Stores a learner quiz attempt for reporting and completion tracking.
+ */
+export const saveQuizAttempt = async (attempt: QuizAttempt): Promise<void> => {
+  const attemptsRef = collection(firestore, 'quizAttempts');
+  const payload: QuizAttempt = {
+    ...attempt,
+    createdAt: attempt.createdAt ?? new Date().toISOString(),
+    id: attempt.id || doc(attemptsRef).id
+  };
+
+  const attemptDoc = doc(attemptsRef, payload.id);
+  await setDoc(attemptDoc, payload);
+};
+
+/**
+ * Fetches a learner's quiz attempts for a specific quiz.
+ */
+export const getUserQuizAttemptsForQuiz = async (
+  userId: string,
+  quizId: string
+): Promise<QuizAttempt[]> => {
+  if (!userId) return [];
+  const attemptsRef = collection(firestore, 'quizAttempts');
+  const attemptsQuery = query(attemptsRef, where('userId', '==', userId), where('quizId', '==', quizId));
+  const snapshot = await getDocs(attemptsQuery);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as QuizAttempt) }));
+};
+
+/**
+ * Retrieves assignments for a course to support learner submissions.
+ */
+export const getAssignmentsForCourse = async (courseId: string): Promise<Assignment[]> => {
+  const assignmentsRef = collection(firestore, `courses/${courseId}/assignments`);
+  const snapshot = await getDocs(assignmentsRef);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Assignment) }));
+};
+
+/**
+ * Fetches a specific assignment document.
+ */
+export const getAssignmentById = async (
+  courseId: string,
+  assignmentId: string
+): Promise<Assignment | null> => {
+  const assignmentRef = doc(firestore, `courses/${courseId}/assignments/${assignmentId}`);
+  const snapshot = await getDoc(assignmentRef);
+  return snapshot.exists()
+    ? ({ id: snapshot.id, ...(snapshot.data() as Assignment) } as Assignment)
+    : null;
+};
+
+/**
+ * Persists a learner's assignment submission including optional file upload.
+ */
+export const submitAssignmentSubmission = async (
+  submission: AssignmentSubmission,
+  file?: File
+): Promise<void> => {
+  try {
+    let fileUrl = submission.fileUrl;
+    if (file) {
+      const storageRef = ref(
+        storage,
+        `assignments/${submission.courseId}/${submission.assignmentId}/${submission.userId}/${file.name}`
+      );
+      const snapshot = await uploadBytes(storageRef, file);
+      fileUrl = await getDownloadURL(snapshot.ref);
+    }
+
+    const submissionsRef = collection(
+      firestore,
+      `courses/${submission.courseId}/assignments/${submission.assignmentId}/submissions`
+    );
+    const payload: AssignmentSubmission = {
+      ...submission,
+      fileUrl,
+      createdAt: submission.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      id: submission.id || doc(submissionsRef).id
+    };
+
+    await setDoc(doc(submissionsRef, payload.id), payload);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error submitting assignment', error);
+    throw error;
+  }
+};
+
+/**
+ * Returns submissions for a given assignment for instructor review.
+ */
+export const getSubmissionsForAssignment = async (
+  courseId: string,
+  assignmentId: string
+): Promise<AssignmentSubmission[]> => {
+  const submissionsRef = collection(firestore, `courses/${courseId}/assignments/${assignmentId}/submissions`);
+  const snapshot = await getDocs(submissionsRef);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as AssignmentSubmission) }));
+};
+
+/**
+ * Updates grading information for an assignment submission.
+ */
+export const gradeAssignmentSubmission = async (
+  courseId: string,
+  assignmentId: string,
+  submissionId: string,
+  grade: number,
+  passed: boolean,
+  feedback?: string
+): Promise<void> => {
+  const submissionRef = doc(
+    firestore,
+    `courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}`
+  );
+
+  await updateDoc(submissionRef, {
+    grade,
+    passed,
+    feedback: feedback ?? '',
+    status: 'graded',
+    updatedAt: new Date().toISOString()
+  });
+};
+
+/**
+ * Creates a certificate record for a learner/course combination.
+ */
+export const createCertificateRecord = async (userId: string, courseId: string): Promise<Certificate> => {
+  const certificatesRef = collection(firestore, 'certificates');
+  const certificateNumber = `IBS-${courseId}-${userId}-${Date.now()}`;
+  const payload: Omit<Certificate, 'id'> = {
+    userId,
+    courseId,
+    issuedAt: new Date().toISOString(),
+    certificateNumber,
+    downloadUrl: ''
+  };
+
+  const docRef = await addDoc(certificatesRef, payload);
+  return { id: docRef.id, ...payload };
+};
+
+/**
+ * Lists certificates for the specified learner.
+ */
+export const getCertificatesForUser = async (userId: string): Promise<Certificate[]> => {
+  if (!userId) return [];
+  const certificatesRef = collection(firestore, 'certificates');
+  const certificatesQuery = query(certificatesRef, where('userId', '==', userId));
+  const snapshot = await getDocs(certificatesQuery);
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Certificate) }));
 };
