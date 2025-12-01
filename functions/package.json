@@ -1,0 +1,19 @@
+{
+  "name": "ibs-lms-functions",
+  "private": true,
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "lint": "echo 'TODO: add lint'",
+    "serve": "firebase emulators:start --only functions"
+  }
+}
