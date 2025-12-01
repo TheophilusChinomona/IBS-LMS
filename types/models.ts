@@ -49,3 +49,71 @@ export interface Enrolment {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Quiz {
+  id: string;
+  courseId: string;
+  moduleId?: string;
+  title: string;
+  description?: string;
+  passingScore: number;
+  maxAttempts?: number | null;
+  questions: QuizQuestion[];
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  type: 'single' | 'multi' | 'truefalse';
+  options: string[];
+  correctOptionIndexes: number[];
+}
+
+export interface QuizAttempt {
+  id: string;
+  quizId: string;
+  courseId: string;
+  userId: string;
+  score: number;
+  passed: boolean;
+  answers: QuizAnswer[];
+  createdAt: string | Date;
+}
+
+export interface QuizAnswer {
+  questionId: string;
+  selectedOptionIndexes: number[];
+}
+
+export interface Assignment {
+  id: string;
+  courseId: string;
+  moduleId?: string;
+  title: string;
+  description?: string;
+  required: boolean;
+}
+
+export interface AssignmentSubmission {
+  id: string;
+  assignmentId: string;
+  courseId: string;
+  userId: string;
+  fileUrl?: string;
+  textResponse?: string;
+  status: 'submitted' | 'graded';
+  grade?: number;
+  passed?: boolean;
+  feedback?: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface Certificate {
+  id: string;
+  userId: string;
+  courseId: string;
+  issuedAt: string | Date;
+  certificateNumber: string;
+  downloadUrl?: string;
+}

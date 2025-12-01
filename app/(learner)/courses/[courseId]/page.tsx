@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
@@ -11,10 +12,22 @@ import {
   getCourseById,
   getEnrolmentForUserAndCourse,
   getLessonsForCourseModule,
-  getModulesForCourse
+  getModulesForCourse,
+  getQuizzesForCourse,
+  getAssignmentsForCourse,
+  createCertificateRecord,
+  getCertificatesForUser
 } from '@/lib/firestore';
 import { useAuth } from '@/components/providers/auth-provider';
-import type { Course, Enrolment, Lesson, Module } from '@/types/models';
+import type {
+  Assignment,
+  Certificate,
+  Course,
+  Enrolment,
+  Lesson,
+  Module,
+  Quiz
+} from '@/types/models';
 
 export default function CourseDetailPage() {
   const params = useParams<{ courseId: string }>();
@@ -26,6 +39,10 @@ export default function CourseDetailPage() {
   const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [certificateMessage, setCertificateMessage] = useState<string | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
 
@@ -39,12 +56,16 @@ export default function CourseDetailPage() {
     // Load course structure for rendering lesson navigation.
     const fetchData = async () => {
       setLoadingCourse(true);
-      const [courseData, moduleData] = await Promise.all([
+      const [courseData, moduleData, quizData, assignmentData] = await Promise.all([
         getCourseById(courseId),
-        getModulesForCourse(courseId)
+        getModulesForCourse(courseId),
+        getQuizzesForCourse(courseId),
+        getAssignmentsForCourse(courseId)
       ]);
       setCourse(courseData);
       setModules(moduleData);
+      setQuizzes(quizData);
+      setAssignments(assignmentData);
 
       const lessonsByModule: Record<string, Lesson[]> = {};
       await Promise.all(
@@ -73,6 +94,15 @@ export default function CourseDetailPage() {
     fetchEnrolment();
   }, [courseId, user?.id]);
 
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      if (!user?.id) return;
+      const userCertificates = await getCertificatesForUser(user.id);
+      setCertificates(userCertificates);
+    };
+    fetchCertificates();
+  }, [user?.id]);
+
   const handleModuleSelect = (moduleId: string) => {
     const lesson = lessons[moduleId]?.[0];
     setSelectedLessonId(lesson?.id ?? null);
@@ -99,6 +129,19 @@ export default function CourseDetailPage() {
     const lessonList = Object.values(lessons).flat();
     return lessonList.find((lesson) => lesson.id === selectedLessonId) ?? null;
   }, [lessons, selectedLessonId]);
+
+  const courseCertificate = useMemo(
+    () => certificates.find((certificate) => certificate.courseId === courseId) || null,
+    [certificates, courseId]
+  );
+
+  const handleRequestCertificate = async () => {
+    if (!user) return;
+    setCertificateMessage('Requesting certificate...');
+    const created = await createCertificateRecord(user.id, courseId);
+    setCertificates((prev) => [...prev, created]);
+    setCertificateMessage('Certificate will be generated. Please check back later.');
+  };
 
   return (
     <LayoutWrapper>
@@ -162,6 +205,74 @@ export default function CourseDetailPage() {
                   </li>
                 ))}
               </ul>
+            </Card>
+
+            <Card title="Quizzes" description="Assess your understanding for this course.">
+              {quizzes.length === 0 ? (
+                <p className="text-sm text-slate-700">No quizzes available yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {quizzes.map((quiz) => (
+                    <li key={quiz.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{quiz.title}</p>
+                        <p className="text-xs text-slate-600">Passing score: {quiz.passingScore}%</p>
+                      </div>
+                      <Link href={`/courses/${courseId}/quizzes/${quiz.id}`} className="text-sm text-brand hover:underline">
+                        Take quiz
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card title="Assignments" description="Submit assignments for instructor review.">
+              {assignments.length === 0 ? (
+                <p className="text-sm text-slate-700">No assignments for this course yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {assignments.map((assignment) => (
+                    <li key={assignment.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{assignment.title}</p>
+                        <p className="text-xs text-slate-600">{assignment.required ? 'Required' : 'Optional'}</p>
+                      </div>
+                      <Link
+                        href={`/courses/${courseId}/assignments/${assignment.id}`}
+                        className="text-sm text-brand hover:underline"
+                      >
+                        Submit
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card title="Certificate" description="Request your certificate after completing the course.">
+              {courseCertificate ? (
+                <div className="space-y-1 text-sm text-slate-700">
+                  <p>Certificate #: {courseCertificate.certificateNumber}</p>
+                  <p>Issued: {new Date(courseCertificate.issuedAt).toLocaleDateString()}</p>
+                  {courseCertificate.downloadUrl ? (
+                    <a href={courseCertificate.downloadUrl} className="text-brand hover:underline" target="_blank" rel="noreferrer">
+                      Download certificate
+                    </a>
+                  ) : (
+                    <p className="text-xs text-slate-600">Processing... check back soon.</p>
+                  )}
+                </div>
+              ) : enrolment?.status === 'completed' ? (
+                <>
+                  <Button size="sm" onClick={handleRequestCertificate}>
+                    Request certificate
+                  </Button>
+                  {certificateMessage && <p className="text-xs text-slate-600">{certificateMessage}</p>}
+                </>
+              ) : (
+                <p className="text-sm text-slate-700">Complete the course to request your certificate.</p>
+              )}
             </Card>
           </div>
         </div>
