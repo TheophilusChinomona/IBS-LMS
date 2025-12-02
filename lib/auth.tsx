@@ -5,7 +5,7 @@ import { ComponentType, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Role } from '@/config/roles';
 
-export function withAuth<P>(Component: ComponentType<P>) {
+export function withAuth<P extends object>(Component: ComponentType<P>) {
   return function Protected(props: P) {
     const { user, loading } = useAuth();
     const router = useRouter();
@@ -20,11 +20,11 @@ export function withAuth<P>(Component: ComponentType<P>) {
       return <p className="p-4">Loading your dashboard...</p>;
     }
 
-    return <Component {...props} />;
+    return <Component {...(props as P)} />;
   };
 }
 
-export function withAdminAuth<P>(Component: ComponentType<P>, allowed: Role[] = ['admin', 'instructor', 'superadmin']) {
+export function withAdminAuth<P extends object>(Component: ComponentType<P>, allowed: Role[] = ['admin', 'instructor', 'superadmin']) {
   return function ProtectedAdmin(props: P) {
     const { user, loading } = useAuth();
     const router = useRouter();
@@ -44,6 +44,6 @@ export function withAdminAuth<P>(Component: ComponentType<P>, allowed: Role[] = 
       return <p className="p-4">Checking permissions...</p>;
     }
 
-    return <Component {...props} />;
+    return <Component {...(props as P)} />;
   };
 }

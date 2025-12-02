@@ -13,7 +13,7 @@ import {
   getQuizById,
   getUserQuizAttemptsForQuiz,
   saveQuizAttempt
-} from '@/lib/firestore';
+} from '@/app/modules/courses/services/firestore';
 import type { Quiz, QuizAttempt, QuizQuestion } from '@/types/models';
 
 interface AnswerState {

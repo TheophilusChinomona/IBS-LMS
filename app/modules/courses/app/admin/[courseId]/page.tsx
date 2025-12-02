@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -7,8 +7,8 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { courseSchema } from '@/lib/validation';
-import { getCourseById, updateCourse } from '@/lib/firestore';
+import { courseSchema } from '@/app/modules/courses/services/validation';
+import { getCourseById, updateCourse } from '@/app/modules/courses/services/firestore';
 import type { Course } from '@/types/models';
 
 export default function AdminCourseDetailPage() {

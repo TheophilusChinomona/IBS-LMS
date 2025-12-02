@@ -1,14 +1,19 @@
-'use client';
+"use client";
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { getPublishedCourses } from '@/lib/firestore';
+import { getPublishedCourses } from '@/app/modules/courses/services/firestore';
+
+import type { Course } from '@/types/models';
 
 export default function AdminDashboardPage() {
-  const { data: courses } = useQuery(['admin-courses'], getPublishedCourses);
+  const { data: courses } = useQuery<Course[]>({
+    queryKey: ['admin-courses'],
+    queryFn: getPublishedCourses
+  });
 
   return (
     <LayoutWrapper>

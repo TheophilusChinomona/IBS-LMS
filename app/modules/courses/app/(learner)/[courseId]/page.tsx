@@ -17,7 +17,7 @@ import {
   getAssignmentsForCourse,
   createCertificateRecord,
   getCertificatesForUser
-} from '@/lib/firestore';
+} from '@/app/modules/courses/services/firestore';
 import { useAuth } from '@/components/providers/auth-provider';
 import type {
   Assignment,

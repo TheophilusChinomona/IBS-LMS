@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/components/providers/auth-provider';
-import { getAssignmentById, submitAssignmentSubmission } from '@/lib/firestore';
+import { getAssignmentById, submitAssignmentSubmission } from '@/app/modules/courses/services/firestore';
 import type { Assignment, AssignmentSubmission } from '@/types/models';
 
 export default function AssignmentSubmissionPage() {

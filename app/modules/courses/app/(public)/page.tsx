@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { Card } from '@/components/ui/card';
-import { getPublishedCourses } from '@/lib/firestore';
+import { getPublishedCourses } from '@/app/modules/courses/services/firestore';
 import { useAuth } from '@/components/providers/auth-provider';
 import type { Course } from '@/types/models';
 

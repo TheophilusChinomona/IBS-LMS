@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/components/providers/auth-provider';
-import { getCertificatesForUser } from '@/lib/firestore';
+import { getCertificatesForUser } from '@/app/modules/courses/services/firestore';
 import type { Certificate } from '@/types/models';
 
 export default function CertificatesPage() {

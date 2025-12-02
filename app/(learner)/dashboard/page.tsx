@@ -8,20 +8,18 @@ import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/providers/auth-provider';
-import { getCourseById, getUserEnrolments } from '@/lib/firestore';
+import { getCourseById, getUserEnrolments } from '@/app/modules/courses/services/firestore';
 import type { Course, Enrolment } from '@/types/models';
 
 export default function LearnerDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   // Fetch enrolments for the signed-in learner.
-  const { data: enrolments, isLoading, isError } = useQuery<Enrolment[]>(
-    ['enrolments', user?.id],
-    () => getUserEnrolments(user?.id ?? ''),
-    {
-      enabled: !!user?.id
-    }
-  );
+  const { data: enrolments, isLoading, isError } = useQuery<Enrolment[]>({
+    queryKey: ['enrolments', user?.id],
+    queryFn: () => getUserEnrolments(user?.id ?? ''),
+    enabled: !!user?.id
+  });
   const [courses, setCourses] = useState<Record<string, Course | null>>({});
 
   useEffect(() => {

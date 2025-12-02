@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
@@ -8,18 +8,22 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { courseSchema } from '@/lib/validation';
-import { createCourse, getPublishedCourses } from '@/lib/firestore';
+import { courseSchema } from '@/app/modules/courses/services/validation';
+import { createCourse, getPublishedCourses } from '@/app/modules/courses/services/firestore';
 import type { Course } from '@/types/models';
 import { useAuth } from '@/components/providers/auth-provider';
 
 export default function AdminCoursesPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { data: courses } = useQuery<Course[]>(['admin-courses'], getPublishedCourses);
+  const { data: courses } = useQuery<Course[]>({
+    queryKey: ['admin-courses'],
+    queryFn: getPublishedCourses
+  });
   const [formError, setFormError] = useState<string | null>(null);
 
-  const mutation = useMutation(createCourse, {
+  const mutation = useMutation({
+    mutationFn: createCourse,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
     }

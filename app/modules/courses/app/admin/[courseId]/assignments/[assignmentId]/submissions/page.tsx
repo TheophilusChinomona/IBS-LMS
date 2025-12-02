@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 // Admin view to review and grade assignment submissions.
 
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   getSubmissionsForAssignment,
   gradeAssignmentSubmission
-} from '@/lib/firestore';
+} from '@/app/modules/courses/services/firestore';
 import type { AssignmentSubmission } from '@/types/models';
 
 export default function AssignmentSubmissionsAdminPage() {
