@@ -229,7 +229,6 @@ export const submitAssignmentSubmission = async (
 
     await setDoc(doc(submissionsRef, payload.id), payload);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Error submitting assignment', error);
     throw error;
   }
