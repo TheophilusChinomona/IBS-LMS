@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ComponentType, useEffect } from 'react';
+import { ComponentType, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Role } from '@/config/roles';
 
@@ -28,16 +28,17 @@ export function withAdminAuth<P>(Component: ComponentType<P>, allowed: Role[] = 
   return function ProtectedAdmin(props: P) {
     const { user, loading } = useAuth();
     const router = useRouter();
+    const allowedRoles = useRef(new Set(allowed));
 
     useEffect(() => {
       if (!loading) {
         if (!user) {
           router.replace('/login');
-        } else if (!allowed.includes(user.role)) {
+        } else if (!allowedRoles.current.has(user.role)) {
           router.replace('/dashboard');
         }
       }
-    }, [allowed, loading, router, user]);
+    }, [loading, router, user]);
 
     if (loading || !user) {
       return <p className="p-4">Checking permissions...</p>;
