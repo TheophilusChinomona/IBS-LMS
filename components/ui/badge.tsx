@@ -1,15 +1,40 @@
-import clsx from 'clsx';
+"use client";
 
-interface BadgeProps {
-  label: string;
-  variant?: 'success' | 'warning' | 'info';
-}
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 
-export function Badge({ label, variant = 'info' }: BadgeProps) {
-  const styles: Record<typeof variant, string> = {
-    success: 'bg-green-100 text-green-700',
-    warning: 'bg-amber-100 text-amber-700',
-    info: 'bg-blue-100 text-blue-700'
-  };
-  return <span className={clsx('inline-flex rounded-full px-2 py-1 text-xs font-semibold', styles[variant])}>{label}</span>;
-}
+import { cn } from "@/lib/utils";
+
+const badgeVariants = cva(
+  "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-wide",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary/10 text-primary",
+        success: "bg-success/10 text-success",
+        warning: "bg-warning/10 text-warning",
+        danger: "bg-danger/10 text-danger",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof badgeVariants> {}
+
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
+  ),
+);
+Badge.displayName = "Badge";
+
+export { Badge, badgeVariants };

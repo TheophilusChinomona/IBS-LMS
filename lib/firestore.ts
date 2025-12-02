@@ -206,13 +206,15 @@ export const submitAssignmentSubmission = async (
 ): Promise<void> => {
   try {
     let fileUrl = submission.fileUrl;
-    if (file) {
+    if (file && storage) {
       const storageRef = ref(
         storage,
         `assignments/${submission.courseId}/${submission.assignmentId}/${submission.userId}/${file.name}`
       );
       const snapshot = await uploadBytes(storageRef, file);
       fileUrl = await getDownloadURL(snapshot.ref);
+    } else if (file && !storage) {
+      console.warn('File upload skipped - Firebase Storage not configured');
     }
 
     const submissionsRef = collection(

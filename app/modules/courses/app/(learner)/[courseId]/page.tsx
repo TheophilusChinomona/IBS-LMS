@@ -1,12 +1,20 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { LayoutWrapper } from '@/components/layout/layout-wrapper';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { BookOpenCheck, CheckCircle2, Clock } from "lucide-react";
+
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Accordion } from "@/components/ui/accordion";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 import {
   createEnrolment,
   getCourseById,
@@ -122,13 +130,28 @@ export default function CourseDetailPage() {
     const refreshed = await getEnrolmentForUserAndCourse(user.id, courseId);
     setEnrolment(refreshed);
     setEnrolling(false);
+    toast.success("Enrolment confirmed", {
+      description: `You're now enrolled in ${course?.title ?? "this course"}.`,
+    });
   };
+
+  const lessonList = useMemo(() => Object.values(lessons).flat(), [lessons]);
 
   const selectedLesson = useMemo(() => {
     if (!selectedLessonId) return null;
-    const lessonList = Object.values(lessons).flat();
     return lessonList.find((lesson) => lesson.id === selectedLessonId) ?? null;
-  }, [lessons, selectedLessonId]);
+  }, [lessonList, selectedLessonId]);
+
+  const completedLessonIds = useMemo(() => {
+    if (!lessonList.length) return new Set<string>();
+    const totalLessons = lessonList.length;
+    const completedCount = Math.round(
+      ((enrolment?.progressPercent ?? 0) / 100) * totalLessons,
+    );
+    return new Set(
+      lessonList.slice(0, completedCount).map((lesson) => lesson.id),
+    );
+  }, [lessonList, enrolment?.progressPercent]);
 
   const courseCertificate = useMemo(
     () => certificates.find((certificate) => certificate.courseId === courseId) || null,
@@ -137,146 +160,293 @@ export default function CourseDetailPage() {
 
   const handleRequestCertificate = async () => {
     if (!user) return;
-    setCertificateMessage('Requesting certificate...');
+    setCertificateMessage("Requesting certificate...");
     const created = await createCertificateRecord(user.id, courseId);
     setCertificates((prev) => [...prev, created]);
-    setCertificateMessage('Certificate will be generated. Please check back later.');
+    setCertificateMessage("Certificate will be generated. Please check back later.");
+    toast.success("Certificate requested", {
+      description: "We'll notify you when it is ready to download.",
+    });
   };
 
+  const moduleItems = modules.map((module) => ({
+    id: module.id,
+    title: module.title,
+    content: (
+      <div className="space-y-1">
+        {lessons[module.id]?.map((lesson) => {
+          const isActive = selectedLessonId === lesson.id;
+          const isCompleted = completedLessonIds.has(lesson.id);
+          return (
+            <button
+              key={lesson.id}
+              type="button"
+              onClick={() => handleLessonSelect(lesson)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm transition",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-slate-600 hover:bg-muted",
+              )}
+            >
+              <span>{lesson.title}</span>
+              {isCompleted && (
+                <CheckCircle2 className="size-4 text-success" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    ),
+  }));
+
   return (
-    <LayoutWrapper>
-      {loadingCourse && <p>Loading course...</p>}
-      {!loadingCourse && !course && <p>Course not found.</p>}
-
-      {course && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <Card title={course.title} description={course.description}>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <Badge label={course.difficulty} variant="info" />
-                <Badge label={course.category} variant="success" />
-                <Badge label={course.status} variant="warning" />
-                <Button size="sm" onClick={handleEnrol} disabled={!!enrolment || enrolling}>
-                  {enrolment ? 'Continue course' : enrolling ? 'Enrolling...' : 'Enrol in course'}
-                </Button>
-              </div>
-              <p className="mt-3 text-sm text-slate-700">Duration: {course.duration}</p>
-              <ul className="mt-3 list-disc space-y-1 pl-4 text-sm text-slate-700">
-                {course.outcomes.map((outcome) => (
-                  <li key={outcome}>{outcome}</li>
-                ))}
-              </ul>
-            </Card>
-            {selectedLesson ? (
-              <Card title={selectedLesson.title} description={`Lesson type: ${selectedLesson.type}`}>
-                <p className="text-sm text-slate-700 whitespace-pre-line">
-                  Lesson content for {selectedLesson.title} will appear here.
-                </p>
-              </Card>
-            ) : (
-              <Card title="Select a lesson" description="Choose a lesson from the sidebar to start learning." />
-            )}
-          </div>
-          <div className="space-y-4">
-            <Card title="Modules & lessons">
-              <ul className="space-y-2">
-                {modules.map((module) => (
-                  <li key={module.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleModuleSelect(module.id)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold hover:border-brand"
-                    >
-                      {module.title}
-                    </button>
-                    <ul className="mt-2 space-y-1 pl-3 text-xs text-slate-600">
-                      {lessons[module.id]?.map((lesson) => (
-                        <li
-                          key={lesson.id}
-                          className={`cursor-pointer rounded px-2 py-1 hover:bg-brand/10 ${
-                            selectedLessonId === lesson.id ? 'bg-brand/10 font-semibold text-slate-800' : ''
-                          }`}
-                          onClick={() => handleLessonSelect(lesson)}
-                        >
-                          {lesson.title}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card title="Quizzes" description="Assess your understanding for this course.">
-              {quizzes.length === 0 ? (
-                <p className="text-sm text-slate-700">No quizzes available yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {quizzes.map((quiz) => (
-                    <li key={quiz.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{quiz.title}</p>
-                        <p className="text-xs text-slate-600">Passing score: {quiz.passingScore}%</p>
-                      </div>
-                      <Link href={`/courses/${courseId}/quizzes/${quiz.id}`} className="text-sm text-brand hover:underline">
-                        Take quiz
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-
-            <Card title="Assignments" description="Submit assignments for instructor review.">
-              {assignments.length === 0 ? (
-                <p className="text-sm text-slate-700">No assignments for this course yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {assignments.map((assignment) => (
-                    <li key={assignment.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{assignment.title}</p>
-                        <p className="text-xs text-slate-600">{assignment.required ? 'Required' : 'Optional'}</p>
-                      </div>
-                      <Link
-                        href={`/courses/${courseId}/assignments/${assignment.id}`}
-                        className="text-sm text-brand hover:underline"
-                      >
-                        Submit
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-
-            <Card title="Certificate" description="Request your certificate after completing the course.">
-              {courseCertificate ? (
-                <div className="space-y-1 text-sm text-slate-700">
-                  <p>Certificate #: {courseCertificate.certificateNumber}</p>
-                  <p>Issued: {new Date(courseCertificate.issuedAt).toLocaleDateString()}</p>
-                  {courseCertificate.downloadUrl ? (
-                    <a href={courseCertificate.downloadUrl} className="text-brand hover:underline" target="_blank" rel="noreferrer">
-                      Download certificate
-                    </a>
-                  ) : (
-                    <p className="text-xs text-slate-600">Processing... check back soon.</p>
-                  )}
-                </div>
-              ) : enrolment?.status === 'completed' ? (
-                <>
-                  <Button size="sm" onClick={handleRequestCertificate}>
-                    Request certificate
-                  </Button>
-                  {certificateMessage && <p className="text-xs text-slate-600">{certificateMessage}</p>}
-                </>
-              ) : (
-                <p className="text-sm text-slate-700">Complete the course to request your certificate.</p>
-              )}
-            </Card>
-          </div>
+    <div className="space-y-8">
+      {loadingCourse && (
+        <div className="space-y-4">
+          <Skeleton className="h-32 rounded-3xl" />
+          <Skeleton className="h-96 rounded-3xl" />
         </div>
       )}
-    </LayoutWrapper>
+      {!loadingCourse && !course && (
+        <Card>
+          <p className="text-sm text-danger">Course not found.</p>
+        </Card>
+      )}
+
+      {course && (
+        <>
+          <Breadcrumb
+            items={[
+              { label: "Courses", href: "/courses" },
+              { label: course.title },
+            ]}
+          />
+          <Card>
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                <Badge variant="default">{course.difficulty}</Badge>
+                <Badge variant="success">{course.category}</Badge>
+                <Badge variant="warning">{course.status}</Badge>
+                {enrolment && (
+                  <Badge variant="success">Enrolled</Badge>
+                )}
+              </div>
+              <div>
+                <h1 className="text-3xl font-semibold text-slate-900">
+                  {course.title}
+                </h1>
+                <p className="mt-2 text-slate-600">{course.description}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                <span className="flex items-center gap-2">
+                  <Clock className="size-4" />
+                  {course.duration}
+                </span>
+                <span className="flex items-center gap-2">
+                  <BookOpenCheck className="size-4" />
+                  {course.outcomes.length} learning outcomes
+                </span>
+              </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="w-full sm:w-1/2">
+                  <Progress value={enrolment?.progressPercent ?? 0} />
+                  <p className="mt-2 text-xs text-slate-500">
+                    {enrolment
+                      ? `${enrolment.progressPercent}% complete`
+                      : "Enrol to start tracking progress."}
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                  <Button
+                    onClick={handleEnrol}
+                    disabled={!!enrolment || enrolling}
+                  >
+                    {enrolment
+                      ? "Continue course"
+                      : enrolling
+                        ? "Enrolling..."
+                        : "Enrol now"}
+                  </Button>
+                  <Link
+                    href="/courses"
+                    className={buttonVariants({ variant: "secondary" })}
+                  >
+                    Browse catalog
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
+            <div className="space-y-6">
+              <Card title="Course structure" description="Navigate modules and lessons.">
+                {moduleItems.length > 0 ? (
+                  <Accordion items={moduleItems} defaultOpen={moduleItems[0]?.id} />
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    Modules coming soon.
+                  </p>
+                )}
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <motion.div
+                key={selectedLessonId ?? "placeholder"}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                {selectedLesson ? (
+                  <Card
+                    title={selectedLesson.title}
+                    description={`Lesson type: ${selectedLesson.type}`}
+                  >
+                    <p className="text-sm text-slate-700 whitespace-pre-line">
+                      {selectedLesson.content
+                        ? selectedLesson.content
+                        : `Lesson content for ${selectedLesson.title} will appear here.`}
+                    </p>
+                  </Card>
+                ) : (
+                  <Card title="Select a lesson" description="Choose a lesson from the course structure to begin." />
+                )}
+              </motion.div>
+            </div>
+            <div className="space-y-6">
+              <Card title="Course intelligence">
+                <ul className="list-disc space-y-2 pl-4 text-sm text-slate-600">
+                  {course.outcomes.map((outcome) => (
+                    <li key={outcome}>{outcome}</li>
+                  ))}
+                </ul>
+              </Card>
+
+              <Card title="Quizzes" description="Assess your understanding.">
+                {quizzes.length === 0 ? (
+                  <p className="text-sm text-slate-600">No quizzes available yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {quizzes.map((quiz) => (
+                        <div
+                          key={quiz.id}
+                          className="flex items-center justify-between rounded-2xl border border-slate-100 p-3"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {quiz.title}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              Passing score: {quiz.passingScore}%
+                            </p>
+                          </div>
+                          <Link
+                            href={`/courses/${courseId}/quizzes/${quiz.id}`}
+                            className={cn(
+                              buttonVariants({ size: "sm", variant: "secondary" }),
+                              "text-center",
+                            )}
+                          >
+                            Take quiz
+                          </Link>
+                        </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card title="Assignments" description="Submit deliverables for review.">
+                {assignments.length === 0 ? (
+                  <p className="text-sm text-slate-600">No assignments yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {assignments.map((assignment) => {
+                      const status =
+                        enrolment?.status === "completed"
+                          ? "Graded"
+                          : assignment.required
+                            ? "Not submitted"
+                            : "Submitted";
+                      const variant =
+                        status === "Graded"
+                          ? "success"
+                          : status === "Submitted"
+                            ? "default"
+                            : "warning";
+                      return (
+                        <div
+                          key={assignment.id}
+                          className="rounded-2xl border border-slate-100 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {assignment.title}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {assignment.required ? "Required" : "Optional"}
+                              </p>
+                            </div>
+                            <Badge variant={variant as "default" | "success" | "warning"}>
+                              {status}
+                            </Badge>
+                          </div>
+                          <Link
+                            href={`/courses/${courseId}/assignments/${assignment.id}`}
+                            className={cn(buttonVariants({ size: "sm" }), "mt-3 w-full text-center")}
+                          >
+                            Submit assignment
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+
+              <Card title="Certificate" description="Request your certificate after completion.">
+                {courseCertificate ? (
+                  <div className="space-y-1 text-sm text-slate-700">
+                    <p>Certificate #: {courseCertificate.certificateNumber}</p>
+                    <p>
+                      Issued:{" "}
+                      {new Date(courseCertificate.issuedAt).toLocaleDateString()}
+                    </p>
+                    {courseCertificate.downloadUrl ? (
+                      <a
+                        href={courseCertificate.downloadUrl}
+                        className="text-primary hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Download certificate
+                      </a>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        Processing... check back soon.
+                      </p>
+                    )}
+                  </div>
+                ) : enrolment?.status === "completed" ? (
+                  <>
+                    <Button size="sm" onClick={handleRequestCertificate}>
+                      Request certificate
+                    </Button>
+                    {certificateMessage && (
+                      <p className="text-xs text-slate-500">{certificateMessage}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    Complete the course to request your certificate.
+                  </p>
+                )}
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { getPublishedCourses } from '@/app/modules/courses/services/firestore';
+import { cn } from '@/lib/utils';
 
 import type { Course } from '@/types/models';
 
@@ -22,9 +23,9 @@ export default function AdminDashboardPage() {
           <h1 className="text-3xl font-semibold text-slate-900">Admin Dashboard</h1>
           <p className="text-slate-600">Manage courses, modules, and lessons.</p>
         </div>
-        <Button asChild>
-          <Link href="/admin/courses">Manage Courses</Link>
-        </Button>
+        <Link href="/admin/courses" className={cn(buttonVariants(), 'text-sm')}>
+          Manage Courses
+        </Link>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
